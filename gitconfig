@@ -1,0 +1,8 @@
+[user]
+	email = weisz@bcm.edu
+	name = David Weisz
+[safe]
+	directory = /spack
+[credential "https://github.com"]
+	helper =
+	helper = !/usr/bin/gh auth git-credential

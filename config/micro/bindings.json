@@ -1,0 +1,17 @@
+{
+    "Alt-/": "lua:comment.comment",
+    "Alt-d": "command:definition",
+    "Alt-f": "command:format",
+    "Alt-k": "command:hover",
+    "Alt-r": "command:references",
+    "Ctrl-Insert": "Copy",
+    "Ctrl-L": "DeleteLine",
+    "CtrlSpace": "command:lspcompletion",
+    "CtrlUnderscore": "lua:comment.comment",
+    "Esc": "Quit",
+    "F1": "command:cheat",
+    "F7": "Find",
+    "F8": "DeleteLine",
+    "Shift-F7": "FindNext",
+    "Shift-Insert": "Paste"
+}

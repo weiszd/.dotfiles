@@ -1,0 +1,27 @@
+# History
+export HISTCONTROL=ignoreboth:erasedups
+shopt -s histappend
+export HISTSIZE=-1
+export HISTFILESIZE=-1
+export HISTTIMEFORMAT='%F %T '
+if [[ $PROMPT_COMMAND != *"history -a"* ]]; then
+    export PROMPT_COMMAND="history -a; history -n"
+fi
+
+# Editor
+export EDITOR=micro
+export VISUAL=micro
+
+# Terminal
+export TERM=xterm-256color
+if [[ -t 1 && $- == *i* ]]; then
+    bind 'set enable-bracketed-paste off' 2>/dev/null || true
+fi
+
+# Aliases
+alias mc='. "$HOME/bin/mc-wrapper.sh"'
+alias brc='micro ~/.bashrc'
+alias dfc='meld'
+alias cpwd='echo $(pwd) | xclip -rmlastnl -in -selection clipboard'
+alias cbpaste='xclip -selection clipboard -o'
+alias cb='xclip -rmlastnl -in -selection clipboard'
