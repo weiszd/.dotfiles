@@ -1,0 +1,37 @@
+# This repo is public. Keep credentials and machine-local state out of it.
+
+# Anything the deploy script backed up
+*.bak
+*.bak.*
+*.bak-*
+
+# Credentials / tokens — never commit
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+known_hosts
+.netrc
+.env
+.env.*
+*credentials*
+*.credentials
+# gh CLI host config: contains an OAuth token
+hosts.yml
+.npmrc.local
+*token*
+
+# Machine-local / regenerated state rather than config
+*.log
+*.sock
+session.json
+panels.ini.tmp
+__pycache__/
+*.pyc
+
+# Large binaries that sometimes live in ~/bin
+bin/cloudflared
+bin/devtunnel
+bin/micromamba

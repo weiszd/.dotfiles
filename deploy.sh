@@ -48,7 +48,8 @@ done
 # bin
 echo
 echo "Scripts:"
-backup_and_link "$DOTFILES_DIR/bin/mc-wrapper.sh" "$HOME/bin/mc-wrapper.sh"
+backup_and_link "$DOTFILES_DIR/bin/mc-wrapper.sh"      "$HOME/bin/mc-wrapper.sh"
+backup_and_link "$DOTFILES_DIR/bin/herdr-fkey-fix.py"  "$HOME/bin/herdr-fkey-fix.py"
 
 # bashrc_custom — print instructions, don't symlink
 echo
