@@ -42,8 +42,8 @@ herdr-sidebar a     # hostname header line, then location, then chat title
 herdr-sidebar c     # chat title first, attention-priority order
 ```
 
-The agent rows color the `machine` token per host (Local red, volthead1 blue,
-volthead2 sky, PVE orange, NASA mauve, NOTS green, TACC yellow, H10 teal) by
+The agent rows color the `machine` token per host (Local red, VH 1 blue,
+VH 2 sky, PVE orange, NASA mauve, NOTS green, TACC yellow, H10 teal) by
 `starts_with` rules on the saved machine label. Edit a variant, rerun the
 switcher; it validates with `herdr config check` and restores the previous
 config on failure. On native Windows there is no symlink deploy: copy
