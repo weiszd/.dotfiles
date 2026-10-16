@@ -8,7 +8,10 @@ Portable terminal customizations: bash settings, editor configs, and helper scri
 - **inputrc** — readline config (history search, home/end keys)
 - **gitconfig** — git user identity and credential helper
 - **bin/mc-wrapper.sh** — Midnight Commander directory-follow wrapper
-- **bin/herdr-fkey-fix.py** — makes F1–F4 work inside [herdr](https://herdr.dev) on Windows Terminal (WSL)
+- **bin/herdr-fkey-fix.py** — makes F1–F4 work inside [herdr](https://herdr.dev) on Windows Terminal (WSL); obsolete for herdr ≥ 0.9.4
+- **bin/herdr-machines** — curses table editor for herdr's saved SSH machine list (reorder, rename, enable/disable, duplicate)
+- **bin/herdr-sidebar** — switch herdr sidebar layout variants and hot-reload
+- **config/herdr/** — herdr `config.toml` plus the sidebar layout variants it is built from
 - **config/mc/** — Midnight Commander settings, keymap, menu, hotlist, panels
 - **config/micro/** — micro editor settings and keybindings
 
@@ -25,6 +28,38 @@ After running, add this line to your `~/.bashrc`:
 ```bash
 source ~/github/.dotfiles/bashrc_custom
 ```
+
+## herdr sidebar layout
+
+`config/herdr/config.toml` is generated: `variants/base.toml` (theme, keys, general
+UI) concatenated with one sidebar variant. Switch live with
+
+```bash
+herdr-sidebar bb    # current favourite: colored host + bold workspace / chat title / dim agent+state
+herdr-sidebar b     # same, plain first line
+herdr-sidebar b0    # b without blank-row gaps
+herdr-sidebar a     # hostname header line, then location, then chat title
+herdr-sidebar c     # chat title first, attention-priority order
+```
+
+The agent rows color the `machine` token per host (Local red, volthead1 blue,
+volthead2 sky, PVE orange, NASA mauve, NOTS green, TACC yellow, H10 teal) by
+`starts_with` rules on the saved machine label. Edit a variant, rerun the
+switcher; it validates with `herdr config check` and restores the previous
+config on failure. On native Windows there is no symlink deploy: copy
+`config/herdr/config.toml` to `%APPDATA%\herdr\config.toml` by hand.
+
+## herdr machine list editor
+
+```bash
+herdr-machines          # Up/Down move, K/J reorder, Enter/F2 rename, Space enable,
+                        # a/Ins add, c duplicate, d/Del delete, r reachability, w save, q quit
+```
+
+Edits `~/.local/state/herdr/client/endpoints.json` per user with a timestamped
+backup on each save. `HERDR_ENDPOINTS=<path>` overrides the location; Windows
+needs `pip install windows-curses`. Also installed cluster-wide on Voltron at
+`/gpfs0/apps/common/bin/herdr-machines`.
 
 ## Function keys in herdr (Windows Terminal + WSL)
 

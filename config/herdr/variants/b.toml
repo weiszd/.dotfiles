@@ -1,0 +1,23 @@
+# --- variant B: compact location line + chat title ---
+agent_panel_sort = "spaces"
+
+[ui.sidebar.spaces]
+row_gap = 1
+rows = [["state_icon", { token = "workspace", bold = true }], [{ token = "branch", dim = true }, "git_status"]]
+
+[ui.sidebar.agents]
+row_gap = 1
+rows = [
+  ["state_icon", { token = "machine", bold = true, fg = "#4c4f69", rules = [
+    { equals = "Local", fg = "#d20f39" },
+    { starts_with = "volthead1", fg = "#1e66f5" },
+    { starts_with = "volthead2", fg = "#04a5e5" },
+    { starts_with = "PVE", fg = "#fe640b" },
+    { starts_with = "NASA", fg = "#8839ef" },
+    { starts_with = "NOTS", fg = "#40a02b" },
+    { starts_with = "TACC", fg = "#df8e1d" },
+    { starts_with = "H10", fg = "#179299" },
+  ] }, "workspace"],
+  [{ token = "terminal_title_stripped", bold = true }],
+  [{ token = "agent", dim = true }, { token = "state_text", dim = true }, { token = "tab", dim = true }],
+]

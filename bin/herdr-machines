@@ -1,0 +1,262 @@
+#!/usr/bin/env python3
+"""herdr-machines — table editor for Herdr's saved SSH machine list.
+
+Edits $XDG_STATE_HOME/herdr/client/endpoints.json (default ~/.local/state) in place,
+with a timestamped backup on every save. Set HERDR_ENDPOINTS to point elsewhere
+(e.g. on native Windows). Works per user; needs python3 with curses
+(Windows: pip install windows-curses).
+Columns: order, enabled, label, ssh target, remote session.
+
+Keys
+  Up/Down, j/k      move cursor
+  Shift+Up/Down K/J move row (reorder)
+  Enter / F2 / e    edit label
+  t                 edit ssh target
+  s                 edit remote session name
+  Space             toggle enabled
+  a / Insert        add machine
+  c                 duplicate machine (prompts for label and target)
+  d / Delete        delete machine (asks)
+  r                 refresh reachability (runs `herdr machine status`)
+  w                 save
+  q                 quit (asks if unsaved)
+"""
+import curses
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+
+STATE_HOME = os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state")
+PATH = os.environ.get("HERDR_ENDPOINTS") or os.path.join(STATE_HOME, "herdr", "client", "endpoints.json")
+UTF8 = (os.environ.get("LC_ALL") or os.environ.get("LC_CTYPE") or os.environ.get("LANG") or "").upper().find("UTF") >= 0
+ON, OFF = ("●", "○") if UTF8 else ("*", "-")
+COLS = [("#", 3), ("on", 3), ("label", 22), ("target", 26), ("session", 10), ("status", 14)]
+
+
+def load():
+    if not os.path.exists(PATH):
+        return {"version": 1, "ssh": []}
+    with open(PATH) as f:
+        return json.load(f)
+
+
+def save(doc):
+    os.makedirs(os.path.dirname(PATH), mode=0o700, exist_ok=True)
+    if os.path.exists(PATH):
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        shutil.copy2(PATH, f"{PATH}.bak-{stamp}")
+    tmp = PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(doc, f, indent=2)
+        f.write("\n")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, PATH)
+
+
+def fetch_status():
+    try:
+        out = subprocess.run(["herdr", "machine", "status", "--json"],
+                             capture_output=True, text=True, timeout=60).stdout
+        return {m["id"]: m["status"] for m in json.loads(out)}
+    except Exception as exc:  # noqa: BLE001
+        return {"__error__": str(exc)[:60]}
+
+
+def prompt(stdscr, title, initial=""):
+    """Single-line editor in the bottom row. Returns None on Esc."""
+    h, w = stdscr.getmaxyx()
+    buf = list(initial)
+    pos = len(buf)
+    curses.curs_set(1)
+    while True:
+        stdscr.move(h - 1, 0)
+        stdscr.clrtoeol()
+        line = f"{title}: {''.join(buf)}"
+        stdscr.addnstr(h - 1, 0, line, w - 1, curses.A_BOLD)
+        stdscr.move(h - 1, min(len(title) + 2 + pos, w - 1))
+        ch = stdscr.get_wch()
+        if ch in ("\n", "\r"):
+            curses.curs_set(0)
+            return "".join(buf)
+        if ch == "\x1b":
+            curses.curs_set(0)
+            return None
+        if ch in (curses.KEY_BACKSPACE, "\x7f", "\b"):
+            if pos:
+                pos -= 1
+                buf.pop(pos)
+        elif ch == curses.KEY_DC:
+            if pos < len(buf):
+                buf.pop(pos)
+        elif ch == curses.KEY_LEFT:
+            pos = max(0, pos - 1)
+        elif ch == curses.KEY_RIGHT:
+            pos = min(len(buf), pos + 1)
+        elif ch == curses.KEY_HOME or ch == "\x01":
+            pos = 0
+        elif ch == curses.KEY_END or ch == "\x05":
+            pos = len(buf)
+        elif ch == "\x15":  # ctrl+u
+            buf, pos = [], 0
+        elif isinstance(ch, str) and ch.isprintable():
+            buf.insert(pos, ch)
+            pos += 1
+
+
+def confirm(stdscr, msg):
+    h, w = stdscr.getmaxyx()
+    stdscr.move(h - 1, 0)
+    stdscr.clrtoeol()
+    stdscr.addnstr(h - 1, 0, f"{msg} [y/N] ", w - 1, curses.A_BOLD | curses.color_pair(3))
+    ch = stdscr.getch()
+    return ch in (ord("y"), ord("Y"))
+
+
+def draw(stdscr, rows, cur, dirty, status, msg):
+    stdscr.erase()
+    h, w = stdscr.getmaxyx()
+    title = f" herdr machines  {PATH}" + ("  [modified]" if dirty else "")
+    stdscr.addnstr(0, 0, title.ljust(w), w - 1, curses.A_REVERSE)
+
+    x = 1
+    for name, width in COLS:
+        stdscr.addnstr(2, x, name.ljust(width), width, curses.A_BOLD | curses.A_UNDERLINE)
+        x += width + 1
+
+    for i, m in enumerate(rows):
+        y = 3 + i
+        if y >= h - 2:
+            break
+        st = status.get(m["id"], "")
+        cells = [str(i + 1), ON if m.get("enabled", True) else OFF, m.get("label", ""),
+                 m.get("target", ""), m.get("session", ""), st]
+        attr = curses.A_REVERSE if i == cur else curses.A_NORMAL
+        if not m.get("enabled", True):
+            attr |= curses.A_DIM
+        stdscr.addnstr(y, 0, " " * (w - 1), w - 1, attr)
+        x = 1
+        for (name, width), cell in zip(COLS, cells):
+            a = attr
+            if name == "on":
+                a |= curses.color_pair(1 if m.get("enabled", True) else 2)
+            if name == "status":
+                a |= curses.color_pair(1 if st == "reachable" else 2 if st else 0)
+            if name == "label" and m.get("enabled", True):
+                a |= curses.A_BOLD
+            stdscr.addnstr(y, x, cell.ljust(width)[:width], width, a)
+            x += width + 1
+
+    if UTF8:
+        help_line = "↑↓ move  ⇧↑⇧↓/K J reorder  ⏎/F2 label  t target  s session  ␣ enable  a/Ins add  c dup  d/Del del  r status  w save  q quit"
+    else:
+        help_line = "Up/Dn move  K/J reorder  Enter/F2 label  t target  s session  Space enable  a/Ins add  c dup  d/Del del  r status  w save  q quit"
+    stdscr.addnstr(h - 2, 0, help_line.ljust(w), w - 1, curses.A_DIM)
+    if msg:
+        stdscr.addnstr(h - 1, 0, msg, w - 1, curses.color_pair(3))
+    stdscr.refresh()
+
+
+def main(stdscr):
+    curses.curs_set(0)
+    curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_GREEN, -1)
+    curses.init_pair(2, curses.COLOR_RED, -1)
+    curses.init_pair(3, curses.COLOR_YELLOW, -1)
+    stdscr.keypad(True)
+
+    doc = load()
+    rows = doc.setdefault("ssh", [])
+    cur, dirty, status, msg = 0, False, {}, ""
+
+    while True:
+        draw(stdscr, rows, cur, dirty, status, msg)
+        msg = ""
+        ch = stdscr.getch()
+        n = len(rows)
+
+        if ch in (curses.KEY_DOWN, ord("j")):
+            cur = min(n - 1, cur + 1) if n else 0
+        elif ch in (curses.KEY_UP, ord("k")):
+            cur = max(0, cur - 1)
+        elif ch in (curses.KEY_SF, ord("J")) and cur < n - 1:  # shift+down
+            rows[cur], rows[cur + 1] = rows[cur + 1], rows[cur]
+            cur += 1
+            dirty = True
+        elif ch in (curses.KEY_SR, ord("K")) and cur > 0:  # shift+up
+            rows[cur], rows[cur - 1] = rows[cur - 1], rows[cur]
+            cur -= 1
+            dirty = True
+        elif ch in (ord("\n"), curses.KEY_ENTER, curses.KEY_F2, ord("e")) and n:
+            v = prompt(stdscr, "label", rows[cur].get("label", ""))
+            if v is not None and v.strip():
+                rows[cur]["label"] = v.strip()
+                dirty = True
+        elif ch == ord("t") and n:
+            v = prompt(stdscr, "target (user@host or ssh alias)", rows[cur].get("target", ""))
+            if v is not None and v.strip():
+                rows[cur]["target"] = v.strip()
+                dirty = True
+        elif ch == ord("s") and n:
+            v = prompt(stdscr, "remote session", rows[cur].get("session", "default"))
+            if v is not None and v.strip():
+                rows[cur]["session"] = v.strip()
+                dirty = True
+        elif ch == ord(" ") and n:
+            rows[cur]["enabled"] = not rows[cur].get("enabled", True)
+            dirty = True
+        elif ch in (ord("a"), curses.KEY_IC):
+            label = prompt(stdscr, "new label")
+            if not label:
+                continue
+            target = prompt(stdscr, "target (user@host or ssh alias)")
+            if not target:
+                continue
+            session = prompt(stdscr, "remote session", "default") or "default"
+            rows.insert(cur + 1 if n else 0, {"id": uuid.uuid4().hex, "label": label.strip(),
+                                               "target": target.strip(), "session": session.strip(),
+                                               "enabled": True})
+            cur = cur + 1 if n else 0
+            dirty = True
+            msg = "added; run `herdr machine reconnect <label>` after saving to verify it"
+        elif ch == ord("c") and n:
+            copy = dict(rows[cur], id=uuid.uuid4().hex, label=rows[cur].get("label", "") + " copy")
+            rows.insert(cur + 1, copy)
+            cur += 1
+            dirty = True
+            v = prompt(stdscr, "label", copy["label"])
+            if v is not None and v.strip():
+                copy["label"] = v.strip()
+            v = prompt(stdscr, "target (user@host or ssh alias)", copy.get("target", ""))
+            if v is not None and v.strip():
+                copy["target"] = v.strip()
+        elif ch in (ord("d"), curses.KEY_DC) and n:
+            if confirm(stdscr, f"delete '{rows[cur]['label']}'?"):
+                rows.pop(cur)
+                cur = max(0, min(cur, len(rows) - 1))
+                dirty = True
+        elif ch == ord("r"):
+            msg = "checking machines…"
+            draw(stdscr, rows, cur, dirty, status, msg)
+            status = fetch_status()
+            err = status.pop("__error__", None)
+            msg = f"status failed: {err}" if err else ""
+        elif ch == ord("w"):
+            save(doc)
+            dirty = False
+            msg = "saved (backup written). Reattach herdr if the sidebar does not refresh."
+        elif ch == ord("q"):
+            if not dirty or confirm(stdscr, "unsaved changes, quit anyway?"):
+                return
+        elif ch == curses.KEY_RESIZE:
+            pass
+
+
+if __name__ == "__main__":
+    if "-h" in sys.argv or "--help" in sys.argv:
+        print(__doc__.strip())
+        sys.exit(0)
+    curses.wrapper(main)

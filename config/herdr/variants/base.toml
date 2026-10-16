@@ -1,0 +1,20 @@
+onboarding = false
+
+[theme]
+name = "catppuccin-latte"
+auto_switch = false
+
+[update]
+channel = "stable"
+
+[keys]
+prefix = "ctrl+a"
+
+[ui.toast]
+delivery = "system"
+
+[ui]
+show_agent_labels_on_pane_borders = true
+status_indicators = "symbols"
+sidebar_width = 30
+sidebar_max_width = 40

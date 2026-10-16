@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Usage: herdr-sidebar <a|b|c|...>   — splice a sidebar variant into config.toml and hot-reload
+set -euo pipefail
+d=~/.config/herdr
+v=${1:?variant name, one of: $(ls $d/variants | grep -v base | sed 's/.toml//' | tr '\n' ' ')}
+cp "$d/config.toml" "$d/config.toml.prev"
+cat "$d/variants/base.toml" "$d/variants/$v.toml" > "$d/config.toml"
+if ! herdr config check; then
+  mv "$d/config.toml.prev" "$d/config.toml"
+  echo "variant $v failed validation, restored previous config" >&2
+  exit 1
+fi
+herdr server reload-config
+echo "applied variant $v"
