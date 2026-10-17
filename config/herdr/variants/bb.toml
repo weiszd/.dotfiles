@@ -1,5 +1,5 @@
 # --- variant B-bold: compact location line + chat title ---
-agent_panel_sort = "spaces"
+agent_panel_sort = "priority"
 
 [ui.sidebar.spaces]
 row_gap = 1

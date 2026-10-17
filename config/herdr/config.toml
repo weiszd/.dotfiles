@@ -19,7 +19,7 @@ status_indicators = "symbols"
 sidebar_width = 30
 sidebar_max_width = 40
 # --- variant B-bold: compact location line + chat title ---
-agent_panel_sort = "spaces"
+agent_panel_sort = "priority"
 
 [ui.sidebar.spaces]
 row_gap = 1
